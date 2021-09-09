@@ -1,12 +1,13 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"regexp"
 	"strconv"
 
-	"github.com/ayushpaharia/microservices-with-go/data"
+	"github.com/ayushpaharia/rest-golang/data"
 )
 
 type Products struct {
@@ -33,36 +34,22 @@ func (p *Products) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 	
 	if r.Method == http.MethodPut {
-		p.l.Println("PUT", r.URL.Path)
-		// expect the id in the URI
-		rs := regexp.MustCompile(`/([0-9]+)`)
-		g := rs.FindAllStringSubmatch(r.URL.Path, -1)
-
-		if len(g) != 1 {
-			p.l.Println("Invalid URI more than one id")
-			http.Error(rw, "Invalid URI", http.StatusBadRequest)
-			return
-		}
-
-		if len(g[0]) != 2 {
-			p.l.Println("Invalid URI more than one capture group")
-			http.Error(rw, "Invalid URI", http.StatusBadRequest)
-			return
-		}
-
-		idString := g[0][1]
-		id, err := strconv.Atoi(idString)
+		id, err := findId(r)
 		if err != nil {
-			p.l.Println("Invalid URI unable to convert to number", idString)
-			http.Error(rw, "Invalid URI", http.StatusBadRequest)
-			return
-		}
-		p.l.Println(id)
+			http.Error(rw, err.Error(), http.StatusBadRequest)
+		} 
 		p.updateProduct(id, rw, r)
 		return
 	}
 
-	// PUT: Update Prodcuts
+	if r.Method == http.MethodDelete {
+		id, err := findId(r)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusBadRequest)
+		} 
+		p.deleteProduct(id, rw, r)
+		return
+	}
 
 	// catch all
 	rw.WriteHeader(http.StatusMethodNotAllowed)
@@ -100,11 +87,28 @@ func (p *Products) addProduct(rw http.ResponseWriter, r *http.Request) {
 	p.l.Printf("Product: %#v", np)
 
 	data.AddProduct(np)
+}
 
-	// err := product.fromJSON(r.Body)
+func (p *Products) deleteProduct(id int, rw http.ResponseWriter, r *http.Request) {
+	p.l.Println("Handle DELETE:deleteProduct")
 
-	// lp := data.AddProducts(product)
-	// d, err := ioutil.ReadAll(r.Body)
+	pl, err := data.DeleteProduct(id)
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+	}
+
+	err = data.ToJSONFunc(&pl, rw)
+	if err != nil {
+		http.Error(rw, "Unable to marshal json", http.StatusInternalServerError)
+	}
+	if err == data.ErrProductNotFound {
+		http.Error(rw, "Product not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(rw, "Product not found", http.StatusInternalServerError)
+		return
+	}
 }
 func (p *Products) updateProduct(id int, rw http.ResponseWriter, r *http.Request) {
 	p.l.Println("Handle PUT:updateProduct")
@@ -126,4 +130,23 @@ func (p *Products) updateProduct(id int, rw http.ResponseWriter, r *http.Request
 		http.Error(rw, "Product not found", http.StatusInternalServerError)
 		return
 	}
+}
+
+func findId(r *http.Request) (int, error) {
+	rs := regexp.MustCompile(`/([0-9]+)`)
+		g := rs.FindAllStringSubmatch(r.URL.Path, -1)
+
+		if len(g) != 1  {
+			return -1, fmt.Errorf("Invalid URI Code:%v", http.StatusBadRequest)
+		}
+		if  len(g[0]) != 2  {
+			return -1, fmt.Errorf("Invalid URI Code:%v", http.StatusNotFound)
+		}
+
+		idString := g[0][1]
+		id, err := strconv.Atoi(idString)
+		if err != nil {
+			return -1, fmt.Errorf("Invalid URI unable to convert to number Code:%v", http.StatusBadRequest)
+		}
+		return id, nil
 }

@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/ayushpaharia/microservices-with-go/handlers"
+	"github.com/ayushpaharia/rest-golang/handlers"
 )
 
 

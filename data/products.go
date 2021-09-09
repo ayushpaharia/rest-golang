@@ -23,6 +23,7 @@ type Products []*Product
 func GetProducts() Products {
 	return productList
 }
+
 func AddProduct(p *Product)  {
 //  /* Convert ID to string before use */
 // 	p.ID = strings.Replace(uuid.New().String(),"-","",-1)
@@ -42,6 +43,30 @@ func UpdateProduct(id int, p *Product) error {
 
 	return nil
 }
+
+func filter(pl Products, test func(int) bool) (Products) {
+	var npl = Products{}
+    for i, p := range pl {
+        if test(i) {
+            npl = append(npl, p)
+        }
+    }
+	productList = npl
+	return npl
+}
+
+func DeleteProduct(id int) (Products, error) {
+	_, _, err := findProduct(id)
+	if err != nil {
+		return productList, err
+	}
+
+	mytest := func(i int) bool { return i == id }
+	npl := filter(productList, mytest)
+	
+	return npl, nil
+}
+
 
 var ErrProductNotFound = fmt.Errorf("Product not found")
 
